@@ -103,16 +103,15 @@ export default function Index() {
             </div>
 
             {/* Heading */}
-            <div className="space-y-4">
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight">
+            <div className="space-y-8">
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight relative z-10">
                 Transform Your Work into
                 <span className="block bg-gradient-to-r from-primary via-primary to-primary/70 bg-clip-text text-transparent">
                   Stunning Case Studies
                 </span>
               </h1>
-              <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Let Portfolio Pilot AI automatically generate compelling case studies
-                from a single prompt. Showcase your best work in minutes, not hours.
+              <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mt-8 relative z-0">
+                Let Portfolio Pilot AI automatically generate compelling case studies from a single prompt. <strong className="text-foreground">Visualize your best work in minutes, then seamlessly transfer your AI-generated content and design inspiration to Builder.io for a perfect, production-ready portfolio.</strong> Showcase your best work, not your time.
               </p>
             </div>
 
