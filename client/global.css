@@ -1,0 +1,100 @@
+/** @import must precede all other statements */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /**
+   * Dark theme for Portfolio Pilot AI
+   * Modern, professional color scheme with vibrant accents
+  */
+  :root {
+    --background: 0 0% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 0 0% 12%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 280 100% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 0 0% 25%;
+    --muted-foreground: 210 40% 70%;
+
+    --accent: 280 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 280 100% 60%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 0 0% 12%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 280 100% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 0 0% 25%;
+    --muted-foreground: 210 40% 70%;
+
+    --accent: 280 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 280 100% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply dark;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", sans-serif;
+  }
+
+  :where(p, span, li, h1, h2, h3, h4, h5, h6, a, button, label, td, th) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  pre,
+  code {
+    overflow-x: auto;
+    white-space: pre;
+  }
+}
