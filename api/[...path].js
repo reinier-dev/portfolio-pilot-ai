@@ -40,8 +40,8 @@ function getSupabase() {
   return supabaseClient;
 }
 
-// POST /api/generate-case-study
-app.post("/api/generate-case-study", async (req, res) => {
+// POST /generate-case-study
+app.post("/generate-case-study", async (req, res) => {
   try {
     const { prompt } = req.body;
 
@@ -153,8 +153,8 @@ app.post("/api/generate-case-study", async (req, res) => {
   }
 });
 
-// GET /api/generate-case-study
-app.get("/api/generate-case-study", async (req, res) => {
+// GET /generate-case-study
+app.get("/generate-case-study", async (req, res) => {
   try {
     const supabase = getSupabase();
     const { data: caseStudies, error } = await supabase
