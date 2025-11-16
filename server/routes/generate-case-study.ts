@@ -54,6 +54,28 @@ router.post("/", strictRateLimiter, requireAuth, async (req: Request, res: Respo
     }
 
     const { prompt } = validation.data;
+    const userId = (req as any).userId;
+
+    // Verificar límite de 10 consultas por usuario
+    const supabase = getSupabase();
+    const { count, error: countError } = await supabase
+      .from("case_studies")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (countError) {
+      console.error("Error al verificar límite de consultas:", countError);
+    }
+
+    // Si el usuario ya tiene 10 o más case studies, rechazar la solicitud
+    if (count !== null && count >= 10) {
+      return res.status(403).json({
+        error: "Límite de consultas alcanzado",
+        message: "Has alcanzado el límite de 10 casos de estudio. No puedes generar más.",
+        limit: 10,
+        current: count,
+      });
+    }
 
     // Tarea 1: Generar el Texto con GPT-4o-mini (modelo económico)
     const openai = getOpenAI();
@@ -110,8 +132,6 @@ router.post("/", strictRateLimiter, requireAuth, async (req: Request, res: Respo
     const imageDesignDescription = visionCompletion.choices[0]?.message?.content || "";
 
     // Tarea 3: Guardar en Supabase con el user_id del usuario autenticado
-    const userId = (req as any).userId;
-    const supabase = getSupabase();
     const { data: savedCaseStudy, error: dbError } = await supabase
       .from("case_studies")
       .insert([
@@ -185,9 +205,15 @@ router.get("/", moderateRateLimiter, requireAuth, async (req: Request, res: Resp
       });
     }
 
+    const currentCount = caseStudies?.length || 0;
+    const limit = 10;
+    const remaining = Math.max(0, limit - currentCount);
+
     return res.status(200).json({
       caseStudies: caseStudies || [],
-      count: caseStudies?.length || 0,
+      count: currentCount,
+      limit: limit,
+      remaining: remaining,
     });
   } catch (error: any) {
     console.error("Error en GET case-studies:", {

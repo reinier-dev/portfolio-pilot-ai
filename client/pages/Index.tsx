@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
@@ -19,8 +19,37 @@ export default function Index() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [limit, setLimit] = useState(10);
   const navigate = useNavigate();
   const { user, signOut, getAccessToken } = useAuth();
+
+  // Obtener el número de consultas restantes al cargar la página
+  useEffect(() => {
+    const fetchUsageStats = async () => {
+      try {
+        const token = getAccessToken();
+        if (!token) return;
+
+        const response = await fetch("/api/generate-case-study", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setRemaining(data.remaining || 0);
+          setLimit(data.limit || 10);
+        }
+      } catch (error) {
+        console.error("Error fetching usage stats:", error);
+      }
+    };
+
+    fetchUsageStats();
+  }, [getAccessToken]);
 
   const handleGenerate = async () => {
     if (!inputValue.trim()) return;
@@ -50,10 +79,24 @@ export default function Index() {
       });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+
+        // Si es un error de límite alcanzado, mostrar mensaje específico
+        if (response.status === 403 && errorData.error === "Límite de consultas alcanzado") {
+          setError(`${errorData.message} (${errorData.current}/${errorData.limit})`);
+          setIsLoading(false);
+          return;
+        }
+
         throw new Error("Failed to generate case study");
       }
 
       const data = await response.json();
+
+      // Actualizar el contador de consultas restantes
+      if (remaining !== null) {
+        setRemaining(Math.max(0, remaining - 1));
+      }
 
       // Navigate to the result page with the case study data
       navigate("/case-study-result", {
@@ -96,6 +139,18 @@ export default function Index() {
               </Link>
             </div>
             <div className="flex items-center gap-3">
+              {/* Contador de consultas restantes */}
+              {remaining !== null && (
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  remaining === 0
+                    ? "bg-red-100 text-red-700"
+                    : remaining <= 3
+                    ? "bg-yellow-100 text-yellow-700"
+                    : "bg-green-100 text-green-700"
+                }`}>
+                  {remaining}/{limit} consultas restantes
+                </div>
+              )}
               <span className="text-sm text-muted-foreground hidden sm:inline">
                 {user?.email}
               </span>
@@ -157,9 +212,9 @@ export default function Index() {
                 />
                 <Button
                   onClick={handleGenerate}
-                  disabled={!inputValue.trim() || isLoading}
+                  disabled={!inputValue.trim() || isLoading || remaining === 0}
                   size="lg"
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-14 px-8 whitespace-nowrap"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-14 px-8 whitespace-nowrap disabled:opacity-50"
                 >
                   {isLoading ? (
                     <>
@@ -179,8 +234,16 @@ export default function Index() {
                   {error}
                 </p>
               )}
+              {remaining === 0 && (
+                <p className="text-sm text-red-600 font-medium">
+                  ⚠️ Has alcanzado el límite de {limit} consultas gratuitas
+                </p>
+              )}
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Free • No credit card required • Takes less than a minute
+                {remaining !== null && remaining > 0
+                  ? `${remaining} consulta${remaining !== 1 ? 's' : ''} gratuita${remaining !== 1 ? 's' : ''} restante${remaining !== 1 ? 's' : ''}`
+                  : "Cada usuario tiene 10 consultas gratuitas"
+                }
               </p>
             </div>
           </div>

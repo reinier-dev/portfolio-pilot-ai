@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Sparkles, CheckCircle } from "lucide-react";
+import { Sparkles, CheckCircle, Mail } from "lucide-react";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -44,10 +44,7 @@ export default function Register() {
     } else {
       setSuccess(true);
       setLoading(false);
-      // Redirigir al login después de 2 segundos
-      setTimeout(() => {
-        navigate("/login");
-      }, 2000);
+      // No redirigir automáticamente - dejar que lean las instrucciones
     }
   };
 
@@ -78,11 +75,24 @@ export default function Register() {
               )}
 
               {success && (
-                <Alert className="bg-green-50 text-green-900 border-green-200">
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    ¡Cuenta creada exitosamente! Revisa tu email para confirmar tu cuenta.
-                    Redirigiendo al login...
+                <Alert className="bg-blue-50 text-blue-900 border-blue-200">
+                  <Mail className="h-5 w-5" />
+                  <AlertDescription className="space-y-3">
+                    <div className="font-semibold text-base">
+                      ✅ ¡Cuenta creada exitosamente!
+                    </div>
+                    <div className="space-y-2">
+                      <p className="font-medium">📧 IMPORTANTE: Revisa tu email</p>
+                      <ol className="text-sm space-y-1 ml-4 list-decimal">
+                        <li>Abre tu bandeja de entrada de <strong>{email}</strong></li>
+                        <li>Busca un email de <strong>Supabase</strong> (revisa también spam/promociones)</li>
+                        <li>Haz click en el <strong>enlace de confirmación</strong></li>
+                        <li>Vuelve aquí para iniciar sesión</li>
+                      </ol>
+                      <p className="text-xs mt-2 text-blue-700">
+                        Sin confirmar tu email no podrás iniciar sesión.
+                      </p>
+                    </div>
                   </AlertDescription>
                 </Alert>
               )}

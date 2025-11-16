@@ -24,7 +24,14 @@ export default function Login() {
     const { error } = await signIn(email, password);
 
     if (error) {
-      setError(error.message || "Error al iniciar sesión");
+      // Mensaje más claro para email no confirmado
+      if (error.message?.includes("Email not confirmed")) {
+        setError(
+          "📧 Email no confirmado. Revisa tu bandeja de entrada y haz click en el enlace de confirmación que te enviamos. Revisa también la carpeta de spam."
+        );
+      } else {
+        setError(error.message || "Error al iniciar sesión");
+      }
       setLoading(false);
     } else {
       navigate("/");
