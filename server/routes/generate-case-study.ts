@@ -1,6 +1,9 @@
 import { Router, Request, Response } from "express";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { validateCaseStudyInput } from "../validators/caseStudy";
+import { requireApiKey } from "../middleware/auth";
+import { strictRateLimiter, moderateRateLimiter } from "../middleware/rateLimiter";
 
 const router = Router();
 
@@ -10,33 +13,47 @@ let supabaseClient: ReturnType<typeof createClient> | null = null;
 
 function getOpenAI() {
   if (!openaiClient) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("OPENAI_API_KEY no está configurada");
+    }
+    openaiClient = new OpenAI({ apiKey });
   }
   return openaiClient;
 }
 
 function getSupabase() {
   if (!supabaseClient) {
-    supabaseClient = createClient(
-      process.env.SUPABASE_URL || "",
-      process.env.SUPABASE_ANON_KEY || ""
-    );
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
+      throw new Error("Variables de Supabase no configuradas");
+    }
+
+    supabaseClient = createClient(url, key);
   }
   return supabaseClient;
 }
 
 // POST /api/generate-case-study
-router.post("/", async (req: Request, res: Response) => {
+// Aplicar rate limiting estricto y autenticación
+router.post("/", strictRateLimiter, requireApiKey, async (req: Request, res: Response) => {
   try {
-    const { prompt } = req.body;
+    // Validar input con Zod
+    const validation = validateCaseStudyInput(req.body);
 
-    if (!prompt || typeof prompt !== "string") {
+    if (!validation.success) {
       return res.status(400).json({
-        error: "El campo 'prompt' es requerido y debe ser un string",
+        error: "Datos de entrada inválidos",
+        details: validation.error.errors.map((err) => ({
+          field: err.path.join("."),
+          message: err.message,
+        })),
       });
     }
+
+    const { prompt } = validation.data;
 
     // Tarea 1: Generar el Texto con GPT-4o-mini (modelo económico)
     const openai = getOpenAI();
@@ -103,7 +120,7 @@ router.post("/", async (req: Request, res: Response) => {
           image_url: generatedImageUrl,
           image_design_description: imageDesignDescription,
         },
-      ])
+      ] as any) // Type assertion para evitar errores de tipado sin tipos generados de Supabase
       .select()
       .single();
 
@@ -127,24 +144,23 @@ router.post("/", async (req: Request, res: Response) => {
       saved: !dbError,
     });
   } catch (error: any) {
-    console.error("Error en generate-case-study:", error);
+    // Log detallado del error (solo en servidor)
+    console.error("Error en generate-case-study:", {
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+    });
 
-    // Manejar errores específicos de OpenAI
-    if (error.status) {
-      return res.status(error.status).json({
-        error: error.message || "Error al comunicarse con OpenAI",
-      });
-    }
-
-    // Error genérico
+    // Respuesta genérica al cliente (sin exponer detalles internos)
     return res.status(500).json({
-      error: "Error interno del servidor al generar el caso de estudio",
+      error: "Error al generar el caso de estudio",
+      message: "Ocurrió un error procesando tu solicitud. Por favor, intenta nuevamente más tarde.",
     });
   }
 });
 
 // GET /api/generate-case-study - Listar todos los casos de estudio
-router.get("/", async (_req: Request, res: Response) => {
+router.get("/", moderateRateLimiter, async (_req: Request, res: Response) => {
   try {
     const supabase = getSupabase();
     const { data: caseStudies, error } = await supabase
@@ -153,9 +169,13 @@ router.get("/", async (_req: Request, res: Response) => {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error al obtener casos de estudio:", error);
+      console.error("Error al obtener casos de estudio:", {
+        message: error.message,
+        timestamp: new Date().toISOString(),
+      });
       return res.status(500).json({
-        error: "Error al obtener los casos de estudio de la base de datos",
+        error: "Error al obtener los casos de estudio",
+        message: "No se pudieron cargar los casos de estudio. Intenta nuevamente.",
       });
     }
 
@@ -164,9 +184,14 @@ router.get("/", async (_req: Request, res: Response) => {
       count: caseStudies?.length || 0,
     });
   } catch (error: any) {
-    console.error("Error en GET case-studies:", error);
+    console.error("Error en GET case-studies:", {
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+    });
     return res.status(500).json({
       error: "Error interno del servidor",
+      message: "Ocurrió un error inesperado.",
     });
   }
 });
