@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { validateCaseStudyInput } from "../validators/caseStudy";
-import { requireApiKey } from "../middleware/auth";
+import { requireAuth } from "../middleware/supabaseAuth";
 import { strictRateLimiter, moderateRateLimiter } from "../middleware/rateLimiter";
 
 const router = Router();
@@ -37,8 +37,8 @@ function getSupabase() {
 }
 
 // POST /api/generate-case-study
-// Aplicar rate limiting estricto y autenticación
-router.post("/", strictRateLimiter, requireApiKey, async (req: Request, res: Response) => {
+// Aplicar rate limiting estricto y autenticación de usuario
+router.post("/", strictRateLimiter, requireAuth, async (req: Request, res: Response) => {
   try {
     // Validar input con Zod
     const validation = validateCaseStudyInput(req.body);
@@ -109,12 +109,14 @@ router.post("/", strictRateLimiter, requireApiKey, async (req: Request, res: Res
 
     const imageDesignDescription = visionCompletion.choices[0]?.message?.content || "";
 
-    // Tarea 3: Guardar en Supabase
+    // Tarea 3: Guardar en Supabase con el user_id del usuario autenticado
+    const userId = (req as any).userId;
     const supabase = getSupabase();
     const { data: savedCaseStudy, error: dbError } = await supabase
       .from("case_studies")
       .insert([
         {
+          user_id: userId, // Asociar el case study al usuario
           prompt: prompt,
           generated_text: generatedText,
           image_url: generatedImageUrl,
@@ -159,13 +161,17 @@ router.post("/", strictRateLimiter, requireApiKey, async (req: Request, res: Res
   }
 });
 
-// GET /api/generate-case-study - Listar todos los casos de estudio
-router.get("/", moderateRateLimiter, async (_req: Request, res: Response) => {
+// GET /api/generate-case-study - Listar los casos de estudio del usuario autenticado
+router.get("/", moderateRateLimiter, requireAuth, async (req: Request, res: Response) => {
   try {
+    const userId = (req as any).userId;
     const supabase = getSupabase();
+
+    // Solo obtener los case studies del usuario autenticado
     const { data: caseStudies, error } = await supabase
       .from("case_studies")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
     if (error) {

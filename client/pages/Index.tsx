@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sparkles,
   FileText,
@@ -11,6 +12,7 @@ import {
   Github,
   Twitter,
   Linkedin,
+  LogOut,
 } from "lucide-react";
 
 export default function Index() {
@@ -18,6 +20,7 @@ export default function Index() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { user, signOut, getAccessToken } = useAuth();
 
   const handleGenerate = async () => {
     if (!inputValue.trim()) return;
@@ -26,10 +29,20 @@ export default function Index() {
     setError("");
 
     try {
+      const token = getAccessToken();
+
+      if (!token) {
+        setError("Sesión expirada. Por favor, inicia sesión nuevamente.");
+        setIsLoading(false);
+        navigate("/login");
+        return;
+      }
+
       const response = await fetch("/api/generate-case-study", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
           prompt: inputValue,
@@ -67,19 +80,35 @@ export default function Index() {
             </div>
             <span className="text-lg font-bold">Portfolio Pilot AI</span>
           </div>
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition">
-              How It Works
-            </a>
-            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition">
-              Features
-            </a>
-            <Link to="/gallery" className="text-sm text-muted-foreground hover:text-foreground transition">
-              My Gallery
-            </Link>
-            <Link to="/case-study" className="text-sm text-muted-foreground hover:text-foreground transition">
-              Example
-            </Link>
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-8">
+              <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition">
+                How It Works
+              </a>
+              <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition">
+                Features
+              </a>
+              <Link to="/gallery" className="text-sm text-muted-foreground hover:text-foreground transition">
+                My Gallery
+              </Link>
+              <Link to="/case-study" className="text-sm text-muted-foreground hover:text-foreground transition">
+                Example
+              </Link>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                {user?.email}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => signOut()}
+                className="gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Cerrar Sesión</span>
+              </Button>
+            </div>
           </div>
         </div>
       </nav>
