@@ -15,11 +15,6 @@ export const strictRateLimiter = rateLimit({
   standardHeaders: true, // Retorna info de rate limit en headers `RateLimit-*`
   legacyHeaders: false, // Deshabilita headers `X-RateLimit-*`
 
-  // Identificar por IP
-  keyGenerator: (req) => {
-    return req.ip || req.socket.remoteAddress || "unknown";
-  },
-
   // Handler cuando se excede el límite
   handler: (req, res) => {
     console.warn(`⚠️ Rate limit excedido para IP: ${req.ip}`);
