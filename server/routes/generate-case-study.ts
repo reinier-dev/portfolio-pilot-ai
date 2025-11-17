@@ -25,7 +25,9 @@ function getOpenAI() {
 function getSupabase() {
   if (!supabaseClient) {
     const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_ANON_KEY;
+    // Usar SERVICE_ROLE_KEY para bypass RLS en el backend
+    // Esto permite verificar límites de CUALQUIER usuario/email/IP
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
     if (!url || !key) {
       throw new Error("Variables de Supabase no configuradas");
@@ -55,25 +57,63 @@ router.post("/", strictRateLimiter, requireAuth, async (req: Request, res: Respo
 
     const { prompt } = validation.data;
     const userId = (req as any).userId;
+    const user = (req as any).user;
+    const userEmail = user?.email || "";
+    const userIp = req.ip || req.socket.remoteAddress || "unknown";
 
-    // Verificar límite de 10 consultas por usuario
     const supabase = getSupabase();
-    const { count, error: countError } = await supabase
-      .from("case_studies")
+    const LIMIT = 10;
+
+    // ============================================
+    // VERIFICACIÓN DE LÍMITES COMBINADOS
+    // Verificar por: Usuario, Email, e IP
+    // ============================================
+
+    // 1. Verificar límite por USER_ID (usuarios autenticados)
+    const { count: userCount } = await supabase
+      .from("usage_tracking")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
 
-    if (countError) {
-      console.error("Error al verificar límite de consultas:", countError);
-    }
-
-    // Si el usuario ya tiene 10 o más case studies, rechazar la solicitud
-    if (count !== null && count >= 10) {
+    if (userCount !== null && userCount >= LIMIT) {
       return res.status(403).json({
         error: "Límite de consultas alcanzado",
-        message: "Has alcanzado el límite de 10 casos de estudio. No puedes generar más.",
-        limit: 10,
-        current: count,
+        message: `Has alcanzado el límite de ${LIMIT} consultas como usuario registrado.`,
+        limit: LIMIT,
+        current: userCount,
+        limitType: "user",
+      });
+    }
+
+    // 2. Verificar límite por EMAIL (persiste aunque borre la cuenta)
+    const { count: emailCount } = await supabase
+      .from("usage_tracking")
+      .select("*", { count: "exact", head: true })
+      .eq("email", userEmail);
+
+    if (emailCount !== null && emailCount >= LIMIT) {
+      return res.status(403).json({
+        error: "Límite de consultas alcanzado",
+        message: `Este email (${userEmail}) ya ha utilizado las ${LIMIT} consultas disponibles.`,
+        limit: LIMIT,
+        current: emailCount,
+        limitType: "email",
+      });
+    }
+
+    // 3. Verificar límite por IP ADDRESS (previene múltiples cuentas desde misma IP)
+    const { count: ipCount } = await supabase
+      .from("usage_tracking")
+      .select("*", { count: "exact", head: true })
+      .eq("ip_address", userIp);
+
+    if (ipCount !== null && ipCount >= LIMIT) {
+      return res.status(403).json({
+        error: "Límite de consultas alcanzado",
+        message: `Se ha alcanzado el límite de ${LIMIT} consultas desde esta conexión.`,
+        limit: LIMIT,
+        current: ipCount,
+        limitType: "ip",
       });
     }
 
@@ -151,6 +191,22 @@ router.post("/", strictRateLimiter, requireAuth, async (req: Request, res: Respo
       // Aún así devolvemos el contenido generado, solo logueamos el error
     }
 
+    // Tarea 3.5: Registrar el uso en la tabla de tracking
+    // Esto previene que usuarios bypaseen el límite borrando su cuenta
+    const { error: trackingError } = await supabase.from("usage_tracking").insert([
+      {
+        user_id: userId,
+        email: userEmail,
+        ip_address: userIp,
+        user_agent: req.headers["user-agent"] || null,
+      },
+    ] as any);
+
+    if (trackingError) {
+      console.error("Error al registrar tracking:", trackingError);
+      // No bloqueamos la respuesta por un error de tracking
+    }
+
     // Tarea 4: La Respuesta - Devolver objeto completo
     const caseStudyObject = savedCaseStudy || {
       id: null,
@@ -205,8 +261,14 @@ router.get("/", moderateRateLimiter, requireAuth, async (req: Request, res: Resp
       });
     }
 
-    const currentCount = caseStudies?.length || 0;
+    // Contar el uso real desde la tabla de tracking (más preciso)
+    const { count: usageCount } = await supabase
+      .from("usage_tracking")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
+
     const limit = 10;
+    const currentCount = usageCount || 0;
     const remaining = Math.max(0, limit - currentCount);
 
     return res.status(200).json({

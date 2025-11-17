@@ -7,6 +7,7 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY es requerida"),
   SUPABASE_URL: z.string().url("SUPABASE_URL debe ser una URL válida"),
   SUPABASE_ANON_KEY: z.string().min(1, "SUPABASE_ANON_KEY es requerida"),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY es requerida (para bypass RLS en backend)"),
 
   // Variables opcionales con valores por defecto
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
